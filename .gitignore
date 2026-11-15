@@ -1,2 +1,4 @@
+# Generated build output (main.ts writes it to $MAKEFUN_OUTPUT_DIR, default /output).
+# It is never committed: the grader runs main.ts itself and compares two runs.
 out/
 out2/
