@@ -119,6 +119,54 @@
     });
   }
 
+  // The board as a CSV file, built in the browser from the same rows the table shows: rank,
+  // slug, name, category, chains, TVL, seven-day growth, age, multiple and implied value.
+  // No network: the file is a Blob made from data.js, downloaded under a plain filename.
+  function downloadCsv() {
+    var head = ['rank', 'slug', 'name', 'category', 'chains', 'tvl_usd', 'change_7d', 'age_days', 'multiple', 'implied_value_usd'];
+    var lines = [head.join(',')];
+    DATA.rows.forEach(function (r) {
+      var cells = [
+        r.rank,
+        r.slug,
+        '"' + String(r.name).replace(/"/g, '""') + '"',
+        r.category || '',
+        '"' + (r.chains || []).join(';') + '"',
+        r.tvl_usd,
+        r.change_7d === null ? '' : r.change_7d,
+        r.age_days === null ? '' : r.age_days,
+        r.multiple,
+        r.implied_value_usd
+      ];
+      lines.push(cells.join(','));
+    });
+    var blob = new Blob([lines.join('\n') + '\n'], { type: 'text/csv' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'token-radar-board.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+  }
+
+  // The farm plan as plain text, for pasting into a farm log: one numbered step per line,
+  // each with its cost and time, exactly as board.json carries it.
+  function copyFarmPlan(steps, button) {
+    var text = steps.map(function (s, i) { return (i + 1) + '. ' + s; }).join('\n');
+    var done = function () { button.textContent = 'Copied to clipboard'; };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { button.textContent = 'Copy failed — select the steps instead'; });
+    } else {
+      var area = document.createElement('textarea');
+      area.value = text;
+      document.body.appendChild(area);
+      area.select();
+      try { document.execCommand('copy'); done(); } catch (e) { button.textContent = 'Copy failed — select the steps instead'; }
+      area.remove();
+    }
+  }
+
   function header() {
     return el('header', { class: 'top' },
       el('div', { class: 'brand' }, el('span', { class: 'mark' }), el('span', { class: 'brand-name', text: 'Token Radar' })),
@@ -161,6 +209,7 @@
     );
     chainSelect.addEventListener('change', function () { state.chain = chainSelect.value; writeHash(); render(); });
     var wl = el('button', { type: 'button', 'aria-pressed': state.watchlistOnly ? 'true' : 'false', text: 'Watchlist only', onclick: function () { state.watchlistOnly = !state.watchlistOnly; writeHash(); render(); } });
+    var csv = el('button', { type: 'button', text: 'Download CSV', onclick: function () { downloadCsv(); } });
     var pre = el('button', { type: 'button', 'aria-pressed': state.tab === 'pre-token' ? 'true' : 'false', text: 'Pre-token', onclick: function () { state.tab = 'pre-token'; render(); } });
     var live = el('button', { type: 'button', 'aria-pressed': state.tab === 'live' ? 'true' : 'false', text: 'Live token', onclick: function () { state.tab = 'live'; render(); } });
     return el('div', { class: 'controls' },
@@ -168,6 +217,7 @@
       el('div', { class: 'field' }, el('label', { for: 'category', text: 'Category' }), select),
       el('div', { class: 'field' }, el('label', { for: 'chain', text: 'Chain' }), chainSelect),
       el('div', { class: 'field' }, el('span', { class: 'sub', text: 'Scope' }), el('div', { class: 'tabs' }, wl)),
+      el('div', { class: 'field' }, el('span', { class: 'sub', text: 'Export' }), csv),
       el('div', { class: 'field' }, el('span', { class: 'sub', text: 'Token status' }), el('div', { class: 'tabs' }, pre, live)),
       el('span', { class: 'count', text: state.tab === 'pre-token' ? rows().length + ' rows shown' : DATA.live.length + ' live-token protocols' })
     );
@@ -350,7 +400,9 @@
         var action = at >= 0 ? s.slice(0, at) : s;
         var tail = at >= 0 ? s.slice(at + 1) : '';
         return el('li', null, el('b', { text: action }), el('span', { class: 'cost', text: tail }));
-      }))
+      })),
+      el('p', { class: 'sub', text: 'Seven steps, each with its cost and time, derived from this protocol\'s own record.' }),
+      el('button', { class: 'button', type: 'button', text: 'Copy farm plan', onclick: function (e) { copyFarmPlan(steps, e.currentTarget); } })
     ));
     if (typeof dialog.showModal === 'function') {
       if (!dialog.open) dialog.showModal();

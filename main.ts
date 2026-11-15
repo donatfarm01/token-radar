@@ -118,8 +118,16 @@ const topCategories = calibration.categories
   .slice(0, 5)
   .map((c) => `${c.category} x${c.multiple}`)
   .join(', ');
+// The run's stdout is the build log a reader greps first: the board's size, the calibration it
+// used, and the five most valuable rows with their implied values, so a wrong run is visible
+// without opening any file.
+const topFive = board
+  .slice(0, 5)
+  .map((r) => `#${r.rank} ${r.slug} $${r.implied_value_usd.toLocaleString('en-US')}`)
+  .join(', ');
 process.stdout.write(
   `token radar: ${snapshot.protocols.length} protocols, ${snapshot.watchlist.length} on the watchlist, ${board.length} rows scored (${radar.early_size} early, ${radar.live_size} live set aside)\n` +
     `token radar: calibration from ${calibration.comparables} live-token comparables, global multiple x${calibration.global_multiple}; ${topCategories}\n` +
+    `token radar: top 5 by implied value: ${topFive}\n` +
     `token radar: wrote ${join(out, 'board.json')}, ${join(out, 'data.js')}, ${join(out, 'dashboard')} (3 files), ${join(out, 'screenshots')} (${shots.length} images) and ${join(out, 'dossier.json')}\n`,
 );

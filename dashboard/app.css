@@ -75,7 +75,7 @@ a { color: var(--accent); }
   min-height: 36px; padding: 0 var(--step-3); border: 1px solid var(--border); border-radius: var(--radius-control);
   background: var(--surface); min-width: 180px;
 }
-.field input { min-width: 280px; }
+.field input { min-width: 240px; }
 .field input:focus, .field select:focus { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 1px; }
 .tabs { display: flex; gap: var(--step-1); padding: 3px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface); }
 .tabs button { min-height: 30px; padding: 0 var(--step-3); border: 0; border-radius: 6px; background: transparent; color: var(--muted); }

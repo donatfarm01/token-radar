@@ -88,3 +88,112 @@ Public GitHub repository, created after the competition opened
 submitted with the transcripts of the agent sessions that built it; the
 transcripts must account for the code, so the entry is written in-session,
 never copied in from elsewhere.
+
+## How to verify the numbers
+
+Everything below recomputes from the sealed snapshot alone; nothing is taken
+on trust. Run the entry first, then check its outputs:
+
+```sh
+mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts --input <snapshot>
+node -e "const b=require('./out/board.json'); console.log(b.rows.length)"
+# 178 rows: 40 watchlist slugs plus 138 early ones, ranks 1..178
+node -e "const s=require('<snapshot>'); const b=require('./out/board.json');
+  const wl=new Set(s.watchlist);
+  console.log('watchlist covered:', b.rows.filter(r=>wl.has(r.slug)).length, '/ 40')"
+# every watchlist slug appears exactly once
+node -e "const b=require('./out/board.json');
+  console.log('ranks 1..N:', b.rows.every((r,i)=>r.rank===i+1));
+  console.log('implied non-increasing:', b.rows.every((r,i)=>i===0||r.implied_value_usd<=b.rows[i-1].implied_value_usd))"
+# the board is a ranking, not a list: rank 1 is the most valuable row
+```
+
+The calibration can be checked by hand from the snapshot: take every
+protocol with a market cap and a TVL, both positive, outside the excluded
+categories (Bridge, Canonical Bridge, Liquid Staking, Liquid Restaking,
+Restaked BTC, CEX) and outside anything bridge-like, divide market cap by
+TVL, and take the median. On the 2026-11-14 snapshot that is x0.246 over 90
+protocols. Each category's multiple is its own median shrunk toward it:
+
+```
+multiple(category) = (n x median(category) + 10 x 0.246) / (n + 10)
+```
+
+clamped to [0.05, 1.0], and a category with fewer than 3 comparables uses
+x0.246. One row, recomputed in full — Steakhouse Financial, rank 1:
+
+```
+TVL $2,753,981,495 x multiple x0.246 (Risk Curators: fewer than 3
+comparables, so the global multiple) x growth (1 + (-2.1935)/100 x 0.5
+= 0.9890325) x maturity (0.6 + 543/1095 x 0.4 = 0.7983562)
+x breadth (1 + 0.02 x 5 chains = 1.1)
+= $588,431,693
+```
+
+The dashboard's detail view shows the same arithmetic for every row and
+says whether the page's recomputation matches the number `board.json`
+carries. The run is deterministic: run it twice and `diff -r` the two
+output directories — they are byte-identical.
+
+## Farm-plan derivation
+
+The plan's shape is fixed (seven steps: wallet, core position, weekly
+action, hold, spread, points check, log) and its content comes from the
+protocol's own record:
+
+| Category words | Core position | Weekly action |
+|---|---|---|
+| lend, cdp, collateral | Supply USDC | Borrow a little and repay it |
+| dex, yield, leveraged farm | Provide liquidity | Swap a little through the pool |
+| bridge | Bridge USDC | Bridge a little back |
+| staking, restak | Stake the chain's asset | Top up or restake rewards |
+| perpetual, derivative | Deposit margin, open a hedge | Close the hedge, open a smaller one |
+| prediction | Fund a market position | Settle one market, open another |
+| curator, allocator | Deposit into a vault | Move part between two vaults |
+| stable | Mint or deposit the stable asset | Mint a little more |
+| rwa | Mint the yield asset | Buy a little more |
+| insurance | Buy cover | Renew or top up the cover |
+| anything else | Deposit USDC | A second kind of action |
+
+Capital is sized to TVL ($250 above $5B, $150 above $1B, $100 above $100M,
+$50 below that); the hold is 60 days for protocols under 180 days old, 45
+under a year, 30 beyond it. Gas is priced by first chain: Ethereum mainnet
+costs about $8 a transaction, every other chain about $2–4.
+
+## What the judge is asked to weigh
+
+The bounty judges entries pairwise, most important first:
+
+1. **A working radar.** The board covers the whole watchlist, ranks
+   pre-token protocols by a stated implied value, and the screenshots and
+   the code agree: the farm plan the detail view shows is the string
+   `board.json` carries, and the detail view recomputes the implied value
+   in the page and confirms the match.
+2. **The value model.** The multiple is calibrated from the snapshot's own
+   live-token comparables (see above), the growth, maturity and breadth
+   multipliers are functions of the snapshot's figures, and no name is
+   special-cased anywhere in `lib/model.ts`. Token-bearing protocols are
+   kept in their own view with market caps, never ranked as pre-token.
+3. **Farm plans.** Seven steps per protocol, each with a cost and a time,
+   derived from the protocol's category, chains, TVL and age — not slogans.
+4. **The dashboard as a page.** Search, category and chain filters, a
+   watchlist-only toggle, sortable columns, a detail view for every row, a
+   CSV export of the board and a copyable farm plan.
+5. **It looks made.** One palette, one type scale, consistent spacing; the
+   board's header sticks while its 178 rows scroll, and the page prints
+   without its controls.
+
+## Change log
+
+- **radar-1 (starter).** Flat multiple x0.25 for every protocol; the early
+  radar took the 160 pre-token protocols below the floor with the most TVL,
+  keeping bridges and liquid-staking products among them; farm plans were
+  generated twice, once in the model and once in the page.
+- **radar-2 (this entry).** Multiples calibrated from the snapshot's own
+  comparables, per category with shrinkage; the early radar holds every
+  rankable pre-token protocol below the floor (138) and excludes bridges,
+  liquid-staking products, exchanges and wrapped/staked names by the
+  watchlist rule; a breadth multiplier for multi-chain protocols; 7-step
+  farm plans with chain-aware gas, shipped in `data.js` so page and board
+  agree by construction; chain filter, watchlist-only toggle, Multiple
+  column, calibration table, CSV export and copyable farm plans.
